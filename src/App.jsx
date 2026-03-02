@@ -76,46 +76,45 @@ const GoGoJob = () => {
       const questionsList = questions.map((q, i) => `${i + 1}. [${q.type.toUpperCase()}] ${q.question}`).join('\n');
 
       await vapi.start(import.meta.env.VITE_VAPI_ASSISTANT_ID, {
-        assistant: {
-          model: {
-            provider: "google",
-            model: "gemini-1.5-flash",
-            messages: [
-              {
-                role: "system",
-                content: `
-                  You are "Sarah", a top-tier Technical Executive Recruiter. 
-                  You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
-                  
-                  JOB DESCRIPTION:
-                  ${jobDescription || 'N/A'}
-                  
-                  CANDIDATE PROFILE:
-                  ${cvText.substring(0, 4000)}
-                  
-                  YOUR INTERVIEW PLAN (Ask these specific questions in order):
-                  ${questionsList}
-                  
-                  GUIDELINES:
-                  1. Start by welcoming them. Mention a specific highlight from their CV.
-                  2. Proceed through the list of 5 questions.
-                  3. BE ASSERTIVE AND INTERRUPT: If they waffle, stop them.
-                  4. DEMAND STAR METHOD for behavioral questions.
-                  5. After the final question, give a brief "Sarah's Tip" and conclude.
-                  
-                  CRITICAL UK INTERVIEW STANDARDS:
-                  ${INTERVIEW_KNOWLEDGE_BASE}
-                `
-              }
-            ]
-          },
-          voice: "jennifer-playht",
-          firstMessage: `Hello! I'm Sarah. Ready to dive into the interview for the ${jobRole || 'position'}?`,
-          transcriber: {
-            provider: "deepgram",
-            model: "nova-2",
-            language: "en-GB"
-          }
+        model: {
+          provider: "google",
+          model: "gemini-1.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `
+                You are "Sarah", a top-tier Technical Executive Recruiter. 
+                You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
+                
+                JOB DESCRIPTION:
+                ${jobDescription || 'N/A'}
+                
+                CANDIDATE PROFILE:
+                ${cvText.substring(0, 4000)}
+                
+                YOUR INTERVIEW PLAN (Ask these specific questions in order):
+                ${questionsList}
+                
+                GUIDELINES:
+                1. Start by welcoming them. Mention a specific highlight from their CV.
+                2. Proceed through the list of 5 questions.
+                3. BE ASSERTIVE AND INTERRUPT: If they waffle, stop them.
+                4. DEMAND STAR METHOD for behavioral questions.
+                5. After the final question, give a brief "Sarah's Tip" and conclude.
+                
+                CRITICAL UK INTERVIEW STANDARDS:
+                ${INTERVIEW_KNOWLEDGE_BASE}
+              `
+            }
+          ]
+        },
+        voice: "playht",
+        voiceId: "s3://voice-training-targets/6822453e-51c6-43f1-b1e8-636c4b127cc1/sarah/manifest.json",
+        firstMessage: `Hello! I'm Sarah. Ready to dive into the interview?`,
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: "en-GB"
         }
       });
     } catch (err) {
@@ -123,6 +122,10 @@ const GoGoJob = () => {
       setError(`Permission Error: ${err.message}. Make sure we have camera access.`);
     }
   };
+
+  // Biometric Hooks (MOVED BACK TO TOP LEVEL)
+  const faceMetrics = useFaceTracker(videoRef.current, isInterviewActive);
+  const voiceMetrics = useVoiceAnalyzer(isInterviewActive);
 
   // Camera is now handled in handleStartInterview click handler for better Safari/Mac support
   const startCamera = () => { /* No-op, managed by button click */ };
