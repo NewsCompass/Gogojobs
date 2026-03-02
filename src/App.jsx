@@ -58,98 +58,74 @@ const GoGoJob = () => {
     }
 
     try {
+      // 1. START CAMERA IMMEDIATELY (SYNCHRONOUSLY IN CLICK HANDLER)
+      // This is the ONLY way to get permissions on Safari/Mac.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: false // We only need video here, Vapi handles audio
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+
       setStep('interview');
 
-      // Convert questions array to a string for the prompt
+      // 2. START VAPI
       const questionsList = questions.map((q, i) => `${i + 1}. [${q.type.toUpperCase()}] ${q.question}`).join('\n');
 
       await vapi.start(import.meta.env.VITE_VAPI_ASSISTANT_ID, {
-        model: {
-          provider: "google",
-          model: "gemini-1.5-flash",
-          systemPrompt: `
-            You are "Sarah", a top-tier Technical Executive Recruiter. 
-            You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
-            
-            JOB DESCRIPTION:
-            ${jobDescription || 'N/A'}
-            
-            CANDIDATE PROFILE:
-            ${cvText.substring(0, 4000)}
-            
-            YOUR INTERVIEW PLAN (Ask these specific questions in order):
-            ${questionsList}
-            
-            GUIDELINES:
-            1. Start by welcoming them. Mention a specific highlight from their CV to show you've done your homework.
-            2. Proceed through the list of 5 questions. Do NOT skip them.
-            3. BE ASSERTIVE AND INTERRUPT: If the candidate waffles, dodges the question, or talks for more than 45 seconds without getting to the point, INTERRUPT THEM immediately. Say phrases like "Let me stop you there," or "To bring this back to the specific question...".
-            4. DEMAND STAR METHOD: If they give a vague behavioral answer, interrupt them and say: "Can you give me a specific Situation, Task, Action, and Result for that?"
-            5. After the final question, give a brief "Sarah's Tip" (e.g. "I love your energy, but watch the pace") and then conclude the interview.
-            
-            CRITICAL UK INTERVIEW STANDARDS TO ENFORCE:
-            ${INTERVIEW_KNOWLEDGE_BASE}
-            
-            If the candidate asks about the company, improvise as a fast-growing, innovative tech firm.
-          `,
-        },
-        firstMessage: `Hello! I'm Sarah. I've been looking over your profile and I'm particularly impressed by your experience. Ready to dive into the interview for the ${jobRole || 'position'}?`,
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-2",
-          language: "en-GB",
-          endpointing: 250 // Lower endpointing makes her interrupt faster
+        assistant: {
+          model: {
+            provider: "google",
+            model: "gemini-1.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: `
+                  You are "Sarah", a top-tier Technical Executive Recruiter. 
+                  You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
+                  
+                  JOB DESCRIPTION:
+                  ${jobDescription || 'N/A'}
+                  
+                  CANDIDATE PROFILE:
+                  ${cvText.substring(0, 4000)}
+                  
+                  YOUR INTERVIEW PLAN (Ask these specific questions in order):
+                  ${questionsList}
+                  
+                  GUIDELINES:
+                  1. Start by welcoming them. Mention a specific highlight from their CV.
+                  2. Proceed through the list of 5 questions.
+                  3. BE ASSERTIVE AND INTERRUPT: If they waffle, stop them.
+                  4. DEMAND STAR METHOD for behavioral questions.
+                  5. After the final question, give a brief "Sarah's Tip" and conclude.
+                  
+                  CRITICAL UK INTERVIEW STANDARDS:
+                  ${INTERVIEW_KNOWLEDGE_BASE}
+                `
+              }
+            ]
+          },
+          voice: "jennifer-playht",
+          firstMessage: `Hello! I'm Sarah. Ready to dive into the interview for the ${jobRole || 'position'}?`,
+          transcriber: {
+            provider: "deepgram",
+            model: "nova-2",
+            language: "en-GB"
+          }
         }
       });
-
     } catch (err) {
-      console.error("Vapi start failed:", err);
-      setError("Failed to start voice interview. Check your Vapi keys.");
+      console.error("Critical Start Error:", err);
+      setError(`Permission Error: ${err.message}. Make sure we have camera access.`);
     }
   };
 
-  // Biometric Hooks
-  const faceMetrics = useFaceTracker(videoRef.current, isInterviewActive);
-  const voiceMetrics = useVoiceAnalyzer(isInterviewActive);
-
-  // Setup webcam with better error handling
-  React.useEffect(() => {
-    let stream = null;
-
-    const startCamera = async () => {
-      if (!isInterviewActive) return;
-
-      try {
-        // Request camera immediately to ensure permissions are caught
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 }
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        } else {
-          // If the ref isn't ready, wait for it
-          const checkRef = setInterval(() => {
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              clearInterval(checkRef);
-            }
-          }, 50);
-        }
-      } catch (err) {
-        console.error("Webcam failed:", err);
-        setError(`Camera Error: ${err.message}. Please check browser permissions.`);
-      }
-    };
-
-    startCamera();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isInterviewActive]);
+  // Camera is now handled in handleStartInterview click handler for better Safari/Mac support
+  const startCamera = () => { /* No-op, managed by button click */ };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -423,10 +399,7 @@ const GoGoJob = () => {
                   <motion.button
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    onClick={() => {
-                      // TRIGGER HARDWARE REQUEST ON CLICK TO PRESERVE GESTURE TOKEN
-                      setStep('interview');
-                    }}
+                    onClick={handleStartInterview}
                     className="btn-primary mt-12 px-12 group"
                   >
                     ENTER INTERVIEW ROOM <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

@@ -10,7 +10,7 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 export const generateInterviewStructure = async (cvText, jobRole = "", jobDescription = "") => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
         const prompt = `
       You are a World-Class Executive Recruiter at a Tier-1 Tech Firm. You have 20 years of experience 
