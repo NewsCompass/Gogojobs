@@ -64,43 +64,41 @@ const GoGoJob = () => {
       const questionsList = questions.map((q, i) => `${i + 1}. [${q.type.toUpperCase()}] ${q.question}`).join('\n');
 
       await vapi.start(import.meta.env.VITE_VAPI_ASSISTANT_ID, {
-        assistant: {
-          model: {
-            provider: "google",
-            model: "gemini-1.5-flash", // Changed from gemini-2.0-flash to gemini-1.5-flash
-            systemPrompt: `
-                      You are "Sarah", a top-tier Technical Executive Recruiter. 
-                      You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
-                      
-                      JOB DESCRIPTION:
-                      ${jobDescription || 'N/A'}
-                      
-                      CANDIDATE PROFILE:
-                      ${cvText.substring(0, 4000)}
-                      
-                      YOUR INTERVIEW PLAN (Ask these specific questions in order):
-                      ${questionsList}
-                      
-                      GUIDELINES:
-                      1. Start by welcoming them. Mention a specific highlight from their CV to show you've done your homework.
-                      2. Proceed through the list of 5 questions. Do NOT skip them.
-                      3. BE ASSERTIVE AND INTERRUPT: If the candidate waffles, dodges the question, or talks for more than 45 seconds without getting to the point, INTERRUPT THEM immediately. Say phrases like "Let me stop you there," or "To bring this back to the specific question...".
-                      4. DEMAND STAR METHOD: If they give a vague behavioral answer, interrupt them and say: "Can you give me a specific Situation, Task, Action, and Result for that?"
-                      5. After the final question, give a brief "Sarah's Tip" (e.g. "I love your energy, but watch the pace") and then conclude the interview.
-                      
-                      CRITICAL UK INTERVIEW STANDARDS TO ENFORCE:
-                      ${INTERVIEW_KNOWLEDGE_BASE}
-                      
-                      If the candidate asks about the company, improvise as a fast-growing, innovative tech firm.
-                    `,
-          },
-          firstMessage: `Hello! I'm Sarah. I've been looking over your profile and I'm particularly impressed by your experience. Ready to dive into the interview for the ${jobRole || 'position'}?`,
-          transcriber: {
-            provider: "deepgram",
-            model: "nova-2",
-            language: "en-GB",
-            endpointing: 250 // Lower endpointing makes her interrupt faster (Standard is 500-800)
-          }
+        model: {
+          provider: "google",
+          model: "gemini-1.5-flash",
+          systemPrompt: `
+            You are "Sarah", a top-tier Technical Executive Recruiter. 
+            You are conducting a high-stakes interview for the role of: ${jobRole || 'Professional Role'}.
+            
+            JOB DESCRIPTION:
+            ${jobDescription || 'N/A'}
+            
+            CANDIDATE PROFILE:
+            ${cvText.substring(0, 4000)}
+            
+            YOUR INTERVIEW PLAN (Ask these specific questions in order):
+            ${questionsList}
+            
+            GUIDELINES:
+            1. Start by welcoming them. Mention a specific highlight from their CV to show you've done your homework.
+            2. Proceed through the list of 5 questions. Do NOT skip them.
+            3. BE ASSERTIVE AND INTERRUPT: If the candidate waffles, dodges the question, or talks for more than 45 seconds without getting to the point, INTERRUPT THEM immediately. Say phrases like "Let me stop you there," or "To bring this back to the specific question...".
+            4. DEMAND STAR METHOD: If they give a vague behavioral answer, interrupt them and say: "Can you give me a specific Situation, Task, Action, and Result for that?"
+            5. After the final question, give a brief "Sarah's Tip" (e.g. "I love your energy, but watch the pace") and then conclude the interview.
+            
+            CRITICAL UK INTERVIEW STANDARDS TO ENFORCE:
+            ${INTERVIEW_KNOWLEDGE_BASE}
+            
+            If the candidate asks about the company, improvise as a fast-growing, innovative tech firm.
+          `,
+        },
+        firstMessage: `Hello! I'm Sarah. I've been looking over your profile and I'm particularly impressed by your experience. Ready to dive into the interview for the ${jobRole || 'position'}?`,
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: "en-GB",
+          endpointing: 250 // Lower endpointing makes her interrupt faster
         }
       });
 
@@ -121,23 +119,22 @@ const GoGoJob = () => {
     const startCamera = async () => {
       if (!isInterviewActive) return;
 
-      // REFIX: If videoRef is null (not mounted yet), wait 100ms and try again once.
-      // This is the #1 reason permission popups don't appear in React apps.
-      if (!videoRef.current) {
-        setTimeout(startCamera, 100);
-        return;
-      }
-
       try {
+        // Request camera immediately to ensure permissions are caught
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 }
         });
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.muted = true;
-          videoRef.current.playsInline = true;
-          await videoRef.current.play().catch(e => console.error("Playback failed", e));
+        } else {
+          // If the ref isn't ready, wait for it
+          const checkRef = setInterval(() => {
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              clearInterval(checkRef);
+            }
+          }, 50);
         }
       } catch (err) {
         console.error("Webcam failed:", err);
@@ -426,7 +423,10 @@ const GoGoJob = () => {
                   <motion.button
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    onClick={() => setStep('interview')}
+                    onClick={() => {
+                      // TRIGGER HARDWARE REQUEST ON CLICK TO PRESERVE GESTURE TOKEN
+                      setStep('interview');
+                    }}
                     className="btn-primary mt-12 px-12 group"
                   >
                     ENTER INTERVIEW ROOM <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
