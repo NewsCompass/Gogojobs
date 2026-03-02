@@ -1,8 +1,7 @@
 import * as pdfjs from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Configure the worker for pdf.js using a local path
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Use CDN for the worker to prevent Vite build/bundling issues on Vercel
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export const parseCV = async (file) => {
     return new Promise((resolve, reject) => {
