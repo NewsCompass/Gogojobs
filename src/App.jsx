@@ -119,15 +119,8 @@ React.useEffect(() => {
   const startCamera = async () => {
     if (isInterviewActive && videoRef.current) {
       try {
-        // Check if devices are available first
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const hasVideo = devices.some(device => device.kind === 'videoinput');
-
-        if (!hasVideo) {
-          setError("No camera detected. Please connect a webcam.");
-          return;
-        }
-
+        // Directly request camera. Do NOT use enumerateDevices first, 
+        // as iOS Safari hides devices until permission is explicitly granted via getUserMedia!
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280 },
@@ -138,7 +131,9 @@ React.useEffect(() => {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          // Ensure video plays
+          // Ensure video plays silently to satisfy mobile autoplay policies
+          videoRef.current.muted = true;
+          videoRef.current.playsInline = true;
           await videoRef.current.play().catch(e => console.error("Playback failed", e));
         }
       } catch (err) {
